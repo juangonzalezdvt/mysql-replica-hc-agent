@@ -58,7 +58,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	// カラム数と同じ要素数のsliceを用意して sql.RawBytes のポインタで初期化しておく
+	// Prepare a slice with the same number of elements as the number of columns
+	// and initialize it with a pointer to sql.RawBytes
 	columns, _ := rows.Columns()
 	values := make([]interface{}, len(columns))
 	for i, _ := range values {
@@ -72,7 +73,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 結果を返す用のmapに値を詰める
+	// Fill the map for returning results
 	slaveInfo := make(map[string]interface{})
 	for i, name := range columns {
 		bp := values[i].(*sql.RawBytes)

@@ -15,7 +15,7 @@ import (
 var (
 	dsn string
 	Version = "0.0.2"
-	failSlaveNotRunning bool
+	failReplicaNotRunning bool
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 	flag.IntVar(&port, "port", 5000, "http listen port number")
 	flag.StringVar(&dsn, "dsn", "root:@tcp(127.0.0.1:3306)/?charset=utf8", "MySQL DSN")
 	flag.BoolVar(&showVersion, "version", false, "show version")
-	flag.BoolVar(&failSlaveNotRunning, "fail-slave-not-ruuning", true, "returns 500 if the slave is not running");
+	flag.BoolVar(&failReplicaNotRunning, "fail-replica-not-ruuning", true, "returns 500 if the replica is not running");
 	flag.Parse()
 	if showVersion {
 		fmt.Printf("version %s\n", Version)
@@ -47,13 +47,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	rows, err := db.Query("SHOW SLAVE STATUS")
+	rows, err := db.Query("SHOW REPLICA STATUS")
 	if err != nil {
 		serverError(w, err)
 		return
 	}
 	if !rows.Next() {
-		serverError(w, errors.New("No slave status"))
+		serverError(w, errors.New("No replica status"))
 		return
 	}
 	defer rows.Close()
@@ -74,25 +74,25 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fill the map for returning results
-	slaveInfo := make(map[string]interface{})
+	replicaInfo := make(map[string]interface{})
 	for i, name := range columns {
 		bp := values[i].(*sql.RawBytes)
 		vs := string(*bp)
 		vi, err := strconv.ParseInt(vs, 10, 64)
 		if err != nil {
-			slaveInfo[name] = vs
+			replicaInfo[name] = vs
 		} else {
-			slaveInfo[name] = vi
+			replicaInfo[name] = vi
 		}
 	}
-	if failSlaveNotRunning && slaveInfo["Seconds_Behind_Master"] == "" {
-		serverError(w, errors.New("Slave is not running."))
+	if failReplicaNotRunning && replicaInfo["Seconds_Behind_Source"] == "" {
+		serverError(w, errors.New("Replica is not running."))
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
-	encoder.Encode(slaveInfo)
+	encoder.Encode(replicaInfo)
 }
 
 func serverError(w http.ResponseWriter, err error) {
